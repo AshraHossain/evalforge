@@ -102,6 +102,9 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: full end-to-end pipeline tests (mocked Ollama + DB)",
+]
 
 [tool.ruff]
 line-length = 100

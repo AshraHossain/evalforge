@@ -19,6 +19,9 @@ venv/
 models/artifacts/
 models/training/data/
 
+# CLI eval reports (generated at runtime)
+report_*.json
+
 # OS
 .DS_Store
 Thumbs.db

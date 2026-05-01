@@ -1,0 +1,49 @@
+name: Self-Eval
+
+# Runs EvalForge's full pipeline against a mock target to verify nothing is broken.
+# This is the "eat your own dog food" check — EvalForge evaluating itself.
+#
+# Triggers:
+#   - Every Monday at 06:00 UTC
+#   - Manually from the Actions tab (workflow_dispatch)
+#   - On push to master (so regressions are caught immediately)
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [master, main]
+    paths:
+      - "agents/**"
+      - "evaluation/**"
+      - "memory/**"
+      - "api/**"
+      - "worker/**"
+
+jobs:
+  self-eval:
+    name: Pipeline health check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run full pipeline integration test
+        run: pytest tests/integration/test_full_eval_pipeline.py -v --tb=long
+
+      - name: Upload report artifact (if generated)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-eval-report
+          path: report_*.json
+          if-no-files-found: ignore
+          retention-days: 30

@@ -1,5 +1,9 @@
 # EvalForge 🔬
 
+[![CI](https://github.com/AshraHossain/evalforge/actions/workflows/ci.yml/badge.svg)](https://github.com/AshraHossain/evalforge/actions/workflows/ci.yml)
+[![Self-Eval](https://github.com/AshraHossain/evalforge/actions/workflows/self-eval.yml/badge.svg)](https://github.com/AshraHossain/evalforge/actions/workflows/self-eval.yml)
+![Python](https://img.shields.io/badge/python-3.11+-blue)
+
 **LLM Evaluation & Reliability Platform** — powered by local Ollama (gemma4:26b)
 
 > Point EvalForge at any LLM app. It auto-generates adversarial test cases, runs them, scores the outputs, detects regressions across runs, and produces a structured reliability report with remediation recommendations. Zero API cost — everything runs locally via Ollama.
@@ -237,6 +241,31 @@ pytest -v
 
 ---
 
+## Phase 4 — LoRA Judge Training
+
+Fine-tunes DeBERTa-v3-base with LoRA for 4-label scoring, replacing ~80% of LLM judge calls with fast local inference.
+
+```bash
+# 1. Install ML extras
+pip install -e ".[ml]"
+
+# 2. Download TruthfulQA + HaluEval → models/training/data/
+python -m models.training.dataset
+
+# 3. Fine-tune (GPU recommended; ~30 min on CPU)
+python -m models.training.train
+
+# 4. Compare F1: all-ones baseline vs base DeBERTa vs LoRA fine-tuned
+python -m models.training.evaluate
+
+# 5. Activate in .env
+echo "LORA_MODEL_AVAILABLE=true" >> .env
+```
+
+The scorer_router then routes high-confidence cases (≥ 0.85) to the LoRA classifier and escalates the rest to Ollama — same accuracy, fraction of the cost.
+
+---
+
 ## Build Phases
 
 | Phase | Goal | Status |
@@ -244,8 +273,8 @@ pytest -v
 | 1 | Core pipeline (CLI, no streaming) | ✅ Complete |
 | 2 | Memory, regression detection, HITL | ✅ Complete |
 | 3 | FastAPI, WebSocket streaming, ARQ | ✅ Complete |
-| 4 | Fine-tuned LoRA judge | 🔲 Stub ready |
-| 5 | Portfolio polish, self-eval CI | 🔲 Planned |
+| 4 | Fine-tuned LoRA judge | ✅ Complete |
+| 5 | Portfolio polish, self-eval CI | ✅ Complete |
 
 ---
 
