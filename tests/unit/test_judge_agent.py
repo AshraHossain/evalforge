@@ -18,7 +18,7 @@ WHY THIS FILE EXISTS:
 
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from api.schemas.job import Result, Score, TestCase, TestCategory
 
@@ -112,7 +112,6 @@ class TestLLMJudge:
     async def test_timeout_gets_zero_score(self):
         """Timed-out executions should not be scored by LLM."""
         from agents.judge_agent import _judge_one
-        from evaluation.scorer_router import ScorerRouter
 
         tc = make_test_case()
         result = make_result(status="timeout", response_text="", latency_ms=30000)

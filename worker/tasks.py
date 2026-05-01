@@ -26,9 +26,7 @@ import json
 import logging
 from typing import Optional
 
-import redis.asyncio as aioredis
 
-from config import settings
 from db.models import JobStatus
 
 logger = logging.getLogger(__name__)
@@ -154,7 +152,6 @@ async def resume_eval_job(ctx: dict, job_id: str) -> dict:
     """
     from agents.orchestrator import resume_eval_job as resume
     from memory.store import EvalStore
-    import redis.asyncio as aioredis
 
     redis_client = ctx.get("redis")
     logger.info(f"[Worker] Resuming HITL job {job_id}")

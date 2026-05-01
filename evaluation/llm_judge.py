@@ -39,7 +39,6 @@ WHY THIS FILE EXISTS:
 
 import json
 import logging
-from typing import Optional
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama

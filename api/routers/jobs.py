@@ -25,7 +25,7 @@ WHY THIS FILE EXISTS:
 from uuid import UUID
 
 import arq
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

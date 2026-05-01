@@ -16,11 +16,8 @@ WHY THIS FILE EXISTS:
 """
 
 import logging
-from typing import Optional
-from uuid import UUID
 
 from sqlalchemy import select, func, desc
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.schemas.job import Result, Score, TestCase
 from db.models import EvalJob, Result as ResultORM, Target, TestCase as TestCaseORM

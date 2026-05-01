@@ -44,8 +44,7 @@ WHY THIS FILE EXISTS:
 """
 
 import logging
-from typing import Annotated, Any, Literal, Optional
-from uuid import UUID
+from typing import Literal, Optional
 
 from langgraph.graph import END, StateGraph
 from typing_extensions import TypedDict

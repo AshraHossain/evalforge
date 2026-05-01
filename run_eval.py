@@ -121,12 +121,12 @@ async def run(args):
         target_config["auth_header"] = args.auth
 
     print(f"\n{'='*60}")
-    print(f"  EvalForge — Evaluation Run")
+    print("  EvalForge — Evaluation Run")
     print(f"  Job ID:   {job_id}")
     print(f"  Target:   {args.name}")
     print(f"  Endpoint: {args.endpoint}")
     print(f"  Cases:    {args.num_cases}")
-    print(f"  Model:    Ollama gemma4:26b (local)")
+    print("  Model:    Ollama gemma4:26b (local)")
     print(f"{'='*60}\n")
 
     # Check if Ollama is running before starting

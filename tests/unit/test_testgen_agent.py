@@ -19,8 +19,7 @@ WHY THIS FILE EXISTS:
 """
 
 import json
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 from api.schemas.job import TestCase, TestCategory
 from api.schemas.report import MemoryContext

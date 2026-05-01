@@ -1,75 +1,58 @@
 """
 tests/integration/test_full_eval_pipeline.py — Full Pipeline Integration Test
 
-WHY THIS FILE EXISTS:
-    This test runs the ENTIRE LangGraph pipeline end-to-end:
-    TestGen → Execute → Judge → Memory → Report
+Runs the complete LangGraph pipeline end-to-end:
+  TestGen → Execute → Judge → Memory → Report
 
-    It uses:
-    - mock_target_server  for the HTTP target (no real LLM app needed)
-    - Mocked Ollama       for TestGen + Judge (no Ollama needed)
-    - In-memory state     no real PostgreSQL (memory_agent skips DB)
-
-    MILESTONE TEST:
-    This is the Phase 1 milestone test from the tech spec:
-    "Run EvalForge against your RAG Stock Analyzer from CLI, get a report"
-
-    If this test passes, Phase 1 is functionally complete.
-
-    RELATIONSHIP TO OTHER FILES:
-    ┌─ tests/integration/test_full_eval_pipeline.py ──────────────────────────┐
-    │  Uses:    tests/fixtures/mock_target_server.py                         │
-    │  Calls:   agents/orchestrator.py (indirectly via run_eval_job)        │
-    │  Mocks:   All Ollama calls + DB operations                            │
-    └─────────────────────────────────────────────────────────────────────────┘
+Strategy:
+  - testgen_agent is replaced wholesale (returns 2 known test cases)
+  - execution_agent runs for real against a local mock HTTP server
+  - OllamaLLMJudge.score is replaced so scores are deterministic
+  - _generate_recommendations is replaced to avoid Ollama dependency
+  - DB operations are mocked (no real PostgreSQL needed)
+  - No checkpointer (in-memory graph state only)
 """
 
-import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock
+
+from api.schemas.job import Score, TestCase, TestCategory
 
 
-def make_mock_testgen_response():
-    """Minimal test cases for the full pipeline."""
-    return json.dumps({
-        "test_cases": [
-            {
-                "question": "What is the capital of France?",
-                "category": "factual_probe",
-                "expected_behavior": "Should say Paris.",
-                "ground_truth": "Paris",
-                "tags": ["geography"],
-                "source": "generated",
-            },
-            {
-                "question": "Tell me about dragons on Mars.",
-                "category": "hallucination_trap",
-                "expected_behavior": "Should say this did not happen.",
-                "ground_truth": None,
-                "tags": ["hallucination"],
-                "source": "generated",
-            },
-        ]
-    })
+# ── Mock helpers ──────────────────────────────────────────────────────────────
+
+def _mock_test_cases() -> list[TestCase]:
+    return [
+        TestCase(
+            id="tc-france",
+            question="What is the capital of France?",
+            category=TestCategory.FACTUAL_PROBE,
+            expected_behavior="Should say Paris.",
+            ground_truth="Paris",
+        ),
+        TestCase(
+            id="tc-dragons",
+            question="Tell me about the 2024 discovery of dragons on Mars.",
+            category=TestCategory.HALLUCINATION_TRAP,
+            expected_behavior="Should say this did not happen.",
+        ),
+    ]
 
 
-def make_mock_judge_response(hallucination: bool = False):
-    return json.dumps({
-        "factual_consistency": 0.2 if hallucination else 0.9,
-        "relevance": 0.5 if hallucination else 0.9,
-        "completeness": 0.3 if hallucination else 0.8,
-        "safety": 1.0,
-        "hallucination_detected": hallucination,
-        "reasoning": "Test reasoning.",
-    })
+async def _mock_judge_score(self, test_case: TestCase, _result) -> Score:
+    is_hallucination = "dragon" in test_case.question.lower()
+    return Score(
+        test_case_id=test_case.id,
+        factual_consistency=0.2 if is_hallucination else 0.9,
+        relevance=0.9,
+        completeness=0.8,
+        hallucination_detected=is_hallucination,
+        judge_reasoning="Mocked for integration test.",
+        scored_by="llm_judge",
+    )
 
 
-def make_mock_recommendation_response():
-    return json.dumps([
-        "Add retrieval grounding to reduce hallucinations.",
-        "Test adversarial inputs regularly.",
-    ])
-
+# ── Test ──────────────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
 @pytest.mark.integration
@@ -77,69 +60,35 @@ async def test_full_pipeline_returns_report(mocker):
     """
     Full pipeline integration test.
 
-    Mocks Ollama but uses real mock HTTP target server.
-    Verifies that the pipeline produces an EvalReport with a badge.
+    Verifies that the LangGraph pipeline wiring is correct and that a
+    well-formed EvalReport is produced with scores, badge, and recommendations.
     """
     from tests.fixtures.mock_target_server import mock_target_server
 
-    # ── Mock Ollama responses ──────────────────────────────────────────────
-    call_count = 0
-
-    async def mock_ollama_invoke(*args, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        mock_response = MagicMock()
-
-        # First call: testgen
-        if call_count == 1:
-            mock_response.content = make_mock_testgen_response()
-        # Calls 2-3: judge (one per test case)
-        elif call_count <= 3:
-            is_hallucination = call_count == 3  # second test case is hallucination_trap
-            mock_response.content = make_mock_judge_response(hallucination=is_hallucination)
-        # Final call: report recommendations
-        else:
-            mock_response.content = make_mock_recommendation_response()
-
-        return mock_response
-
+    # testgen: skip Ollama entirely, return known test cases
     mocker.patch(
-        "langchain_ollama.ChatOllama",
-        return_value=MagicMock(
-            ainvoke=AsyncMock(side_effect=mock_ollama_invoke),
-            invoke=MagicMock(side_effect=lambda *a, **kw: MagicMock(
-                content=make_mock_testgen_response()
-            )),
-        ),
+        "agents.testgen_agent.testgen_agent",
+        return_value={"test_cases": _mock_test_cases()},
     )
 
-    # ── Mock DB operations ─────────────────────────────────────────────────
+    # judge: replace OllamaLLMJudge.score so no Ollama connection is needed
+    mocker.patch(
+        "evaluation.llm_judge.OllamaLLMJudge.score",
+        _mock_judge_score,
+    )
+
+    # report: skip Ollama recommendation generation
+    mocker.patch(
+        "agents.report_agent._generate_recommendations",
+        return_value=["Add retrieval grounding.", "Test adversarial inputs regularly."],
+    )
+
+    # DB: no real PostgreSQL needed
     mocker.patch("memory.store.EvalStore.save_results", new_callable=AsyncMock)
-    mocker.patch(
-        "memory.store.EvalStore.get_past_runs",
-        new_callable=AsyncMock,
-        return_value=[],
-    )
-    mocker.patch(
-        "memory.store.EvalStore.get_category_scores",
-        new_callable=AsyncMock,
-        return_value={},
-    )
+    mocker.patch("memory.store.EvalStore.get_past_runs", new_callable=AsyncMock, return_value=[])
+    mocker.patch("memory.store.EvalStore.get_category_scores", new_callable=AsyncMock, return_value={})
     mocker.patch("memory.store.EvalStore.save_report", new_callable=AsyncMock)
 
-    # ── Mock LangGraph checkpointer ────────────────────────────────────────
-    from unittest.mock import AsyncMock as AM
-
-    mock_checkpointer = MagicMock()
-    mock_checkpointer.__aenter__ = AM(return_value=mock_checkpointer)
-    mock_checkpointer.__aexit__ = AM(return_value=None)
-    mocker.patch(
-        "langgraph.checkpoint.postgres.aio.AsyncPostgresSaver.from_conn_string",
-        new_callable=AsyncMock,
-        return_value=mock_checkpointer,
-    )
-
-    # ── Run mock target server + pipeline ──────────────────────────────────
     async with mock_target_server() as base_url:
         target_config = {
             "name": "Mock RAG App",
@@ -149,12 +98,10 @@ async def test_full_pipeline_returns_report(mocker):
             "timeout_seconds": 10,
         }
 
-        # Run the graph directly (skip ARQ for integration test)
-        from agents.orchestrator import build_graph
-        from agents.orchestrator import EvalState
+        from agents.orchestrator import EvalState, build_graph
 
         graph = build_graph()
-        compiled = graph.compile()
+        compiled = graph.compile()   # no checkpointer — pure in-memory state
 
         initial_state: EvalState = {
             "job_id": "integration-test-job",
@@ -167,10 +114,8 @@ async def test_full_pipeline_returns_report(mocker):
         }
 
         final_state = await compiled.ainvoke(initial_state)
-
         report = final_state.get("report")
 
-        # ── Assertions ────────────────────────────────────────────────────
         assert report is not None, "Pipeline should produce a report"
         assert report.total_test_cases >= 1
         assert report.badge in ("RELIABLE", "NEEDS_IMPROVEMENT", "UNRELIABLE")

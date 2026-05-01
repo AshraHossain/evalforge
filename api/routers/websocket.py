@@ -27,7 +27,6 @@ WHY THIS FILE EXISTS:
     └─────────────────────────────────────────────────────────────────────────┘
 """
 
-import asyncio
 import json
 import logging
 

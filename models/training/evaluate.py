@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from sklearn.metrics import classification_report, f1_score
+from sklearn.metrics import f1_score
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from peft import PeftModel
 

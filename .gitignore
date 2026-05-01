@@ -19,8 +19,11 @@ venv/
 models/artifacts/
 models/training/data/
 
-# CLI eval reports (generated at runtime)
+# CLI eval reports and runtime logs
 report_*.json
+*.log
+*.msixbundle
+*.msix
 
 # OS
 .DS_Store
