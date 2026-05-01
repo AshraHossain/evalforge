@@ -1,0 +1,60 @@
+##############################################################################
+# EvalForge — Docker Compose
+#
+# WHY THIS FILE EXISTS:
+#   EvalForge depends on two external services: PostgreSQL (persistent eval
+#   history) and Redis (ARQ job queue + pub/sub for WebSocket streaming).
+#   Docker Compose starts both with a single `docker compose up -d` so any
+#   developer can be running locally in under a minute.
+#
+#   We do NOT containerise the FastAPI app here so you can run `uvicorn` with
+#   hot-reload during development. Add an `api` service when deploying.
+##############################################################################
+
+version: "3.9"
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  # Stores: targets, eval_jobs, test_cases, results
+  # Also used by LangGraph's PostgreSQL checkpointer to persist graph state —
+  # this is what lets HITL jobs pause mid-graph and resume after human approval.
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-evalforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evalforge}
+      POSTGRES_DB: ${POSTGRES_DB:-evalforge}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evalforge}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  # Two jobs:
+  #   1. ARQ job queue — eval jobs submitted via POST /api/v1/jobs land here,
+  #      the worker picks them up asynchronously so the HTTP response is instant.
+  #   2. Pub/Sub channel — worker publishes partial results here; the WebSocket
+  #      endpoint subscribes and streams them to the browser in real time.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

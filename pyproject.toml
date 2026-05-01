@@ -1,0 +1,99 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["tests*", "models/artifacts*"]
+
+[project]
+name = "evalforge"
+version = "0.1.0"
+description = "LLM Evaluation & Reliability Platform — powered by local Ollama (gemma4:26b)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # ── LangChain + LangGraph ──────────────────────────────────────────────────
+    # LangGraph is the multi-agent orchestration framework. It gives us a
+    # StateGraph where each node is an agent and edges define control flow.
+    # langgraph-checkpoint-postgres lets us persist graph state to PostgreSQL
+    # so long-running jobs survive restarts and HITL pauses.
+    "langgraph>=0.2.0",
+    "langgraph-checkpoint-postgres>=0.1.0",
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+
+    # ── Ollama integration ─────────────────────────────────────────────────────
+    # langchain-ollama provides ChatOllama — a drop-in LangChain chat model that
+    # routes calls to your local Ollama server (default: http://localhost:11434).
+    # This replaces ChatOpenAI / ChatAnthropic everywhere in the codebase.
+    "langchain-ollama>=0.2.0",
+    "ollama>=0.3.0",
+
+    # ── FastAPI stack ──────────────────────────────────────────────────────────
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",
+    "websockets>=12.0",
+
+    # ── Auth ───────────────────────────────────────────────────────────────────
+    # python-jose for JWT creation/validation, passlib for password hashing.
+    # bcrypt pinned <4.0: passlib 1.7.4 reads bcrypt.__about__.__version__
+    # which was removed in bcrypt 4.0 — this keeps password hashing working.
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=3.0.0,<4.0.0",
+
+    # ── Database ───────────────────────────────────────────────────────────────
+    # SQLAlchemy async engine + asyncpg driver for non-blocking PostgreSQL I/O.
+    # Alembic handles schema migrations so the DB stays in sync with models.py.
+    "sqlalchemy[asyncio]>=2.0.0",
+    "asyncpg>=0.29.0",
+    # psycopg[binary] bundles libpq — required by langgraph-checkpoint-postgres
+    # on Windows where libpq is not installed system-wide
+    "psycopg[binary]>=3.1.0",
+    "alembic>=1.13.0",
+
+    # ── Job queue ──────────────────────────────────────────────────────────────
+    # ARQ is an async Redis queue built on asyncio — lighter than Celery and
+    # plays nicely with FastAPI's async nature.
+    "arq>=0.25.0",
+    "redis>=5.0.0",
+
+    # ── Evaluation ─────────────────────────────────────────────────────────────
+    # ragas provides ready-made RAG evaluation metrics (answer_relevancy,
+    # faithfulness, context_recall, context_precision).
+    "ragas>=0.1.0",
+
+    # ── HTTP client ────────────────────────────────────────────────────────────
+    # httpx for async HTTP — used by ExecutionAgent to call target endpoints.
+    "httpx>=0.27.0",
+
+    # ── Data / config ──────────────────────────────────────────────────────────
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "python-dotenv>=1.0.0",
+    "jsonpath-ng>=1.6.0",    # JSONPath extraction from target responses
+
+    # ── Observability ─────────────────────────────────────────────────────────
+    "langsmith>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.14.0",
+    "httpx>=0.27.0",          # also used as async test client for FastAPI
+    "respx>=0.21.0",          # mock HTTP calls in tests
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
