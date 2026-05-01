@@ -80,6 +80,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ml = [
+    "torch>=2.0.0",
+    "transformers>=4.40.0",
+    "peft>=0.10.0",
+    "datasets>=2.19.0",
+    "accelerate>=0.29.0",
+    "scikit-learn>=1.4.0",
+    "sentencepiece>=0.1.99",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",

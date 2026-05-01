@@ -15,8 +15,9 @@ venv/
 .mypy_cache/
 .ruff_cache/
 
-# Model artifacts
+# Model artifacts and training data
 models/artifacts/
+models/training/data/
 
 # OS
 .DS_Store

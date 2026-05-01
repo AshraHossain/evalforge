@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     # Ollama LLM-as-Judge call and trust the classifier alone.
     LORA_CONFIDENCE_THRESHOLD: float = 0.85
 
+    # ── LoRA judge (Phase 4) ──────────────────────────────────────────────
+    # Set LORA_MODEL_AVAILABLE=true in .env after running models/training/train.py
+    LORA_MODEL_AVAILABLE: bool = False
+    LORA_MODEL_PATH: str = "models/artifacts/lora_judge"
+
 
 # Module-level singleton — import this everywhere
 settings = Settings()
