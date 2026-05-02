@@ -70,7 +70,7 @@ class RegressionDetector:
         # Build historical pass/fail maps per test case
         # history[test_case_id] = [oldest_result, ..., newest_result]
         history: dict[str, list[bool]] = {}
-        for run in reversed(past_runs):  # oldest first
+        for run in past_runs:  # oldest first (caller provides in chronological order)
             for score in run.get("scores", []):
                 tc_id = score.test_case_id
                 if tc_id not in history:

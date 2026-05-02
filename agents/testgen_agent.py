@@ -115,16 +115,14 @@ def testgen_agent(state: "EvalState") -> dict:
     # base_url points to your local Ollama server (default: localhost:11434).
     # We use .with_structured_output(TestCaseBatch) to get validated Pydantic
     # objects back instead of raw text — no JSON parsing fragility.
-    llm = ChatOllama(
-        model=settings.OLLAMA_MODEL,
-        base_url=settings.OLLAMA_BASE_URL,
-        temperature=0.9,   # Higher temperature → more creative/varied test cases
-        format="json",     # Tell Ollama to output JSON mode
-    )
-
-    chain = TESTGEN_PROMPT | llm
-
     try:
+        llm = ChatOllama(
+            model=settings.OLLAMA_MODEL,
+            base_url=settings.OLLAMA_BASE_URL,
+            temperature=0.9,
+            format="json",
+        )
+        chain = TESTGEN_PROMPT | llm
         response = chain.invoke({
             "target_description": f"{target_cfg.get('name', 'LLM System')} at {target_cfg['endpoint']}",
             "domain": target_cfg.get("domain", "general"),

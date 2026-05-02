@@ -47,7 +47,7 @@ def make_result(**kwargs) -> Result:
 
 class TestLLMJudge:
     @pytest.mark.asyncio
-    async def test_parses_good_response(self, mocker):
+    async def test_parses_good_response(self):
         """Judge correctly parses a well-formed Ollama response."""
         mock_response = MagicMock()
         mock_response.content = json.dumps({
@@ -59,14 +59,10 @@ class TestLLMJudge:
             "reasoning": "Answer is factually correct and directly addresses the question.",
         })
 
-        mock_chain = AsyncMock(return_value=mock_response)
-        mocker.patch(
-            "evaluation.llm_judge.JUDGE_PROMPT.__or__",
-            return_value=MagicMock(ainvoke=mock_chain),
-        )
-
         from evaluation.llm_judge import OllamaLLMJudge
         judge = OllamaLLMJudge()
+        # Patch the chain directly — avoids dunder method lookup issues with |
+        judge.chain = MagicMock(ainvoke=AsyncMock(return_value=mock_response))
         score = await judge.score(make_test_case(), make_result())
 
         assert score.factual_consistency == 1.0
@@ -75,7 +71,7 @@ class TestLLMJudge:
         assert score.scored_by == "llm_judge"
 
     @pytest.mark.asyncio
-    async def test_detects_hallucination(self, mocker):
+    async def test_detects_hallucination(self):
         """Judge correctly flags hallucination in fabricated response."""
         mock_response = MagicMock()
         mock_response.content = json.dumps({
@@ -87,14 +83,9 @@ class TestLLMJudge:
             "reasoning": "The response invents facts about Mars dragons.",
         })
 
-        mock_chain = AsyncMock(return_value=mock_response)
-        mocker.patch(
-            "evaluation.llm_judge.JUDGE_PROMPT.__or__",
-            return_value=MagicMock(ainvoke=mock_chain),
-        )
-
         from evaluation.llm_judge import OllamaLLMJudge
         judge = OllamaLLMJudge()
+        judge.chain = MagicMock(ainvoke=AsyncMock(return_value=mock_response))
         tc = make_test_case(
             question="Tell me about Mars dragons discovered in 2024.",
             category=TestCategory.HALLUCINATION_TRAP,
