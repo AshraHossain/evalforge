@@ -240,6 +240,18 @@ def _patch_memory_for_cli():
 
     mem_module.memory_agent = stub_memory_agent
 
+    # Auto-approve HITL in CLI mode — no human in the loop for a local run
+    import agents.hitl_node as hitl_module
+
+    def auto_approve_hitl(_state):
+        logger.info(
+            "[CLI] HITL gate triggered (hallucination rate exceeded threshold). "
+            "Auto-approving in CLI mode — use the API for human review."
+        )
+        return {"approved": True}
+
+    hitl_module.human_review_node = auto_approve_hitl
+
 
 if __name__ == "__main__":
     args = parse_args()

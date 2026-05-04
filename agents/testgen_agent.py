@@ -134,12 +134,24 @@ def testgen_agent(state: "EvalState") -> dict:
         # Parse the JSON response into TestCase objects
         raw = response.content if hasattr(response, "content") else str(response)
 
-        # Handle both wrapped {"test_cases": [...]} and raw [...] formats
         parsed = json.loads(raw) if isinstance(raw, str) else raw
-        if isinstance(parsed, list):
-            test_cases = [TestCase(**tc) for tc in parsed]
-        else:
-            test_cases = [TestCase(**tc) for tc in parsed.get("test_cases", parsed)]
+
+        # Normalise: accept {"test_cases": [...]} or bare [...]
+        items = parsed if isinstance(parsed, list) else parsed.get("test_cases", [])
+
+        # Some models wrap each item as a JSON string instead of a dict
+        test_cases = []
+        for item in items:
+            if isinstance(item, str):
+                try:
+                    item = json.loads(item)
+                except Exception:
+                    continue
+            if isinstance(item, dict):
+                try:
+                    test_cases.append(TestCase(**item))
+                except Exception:
+                    continue
 
     except Exception as e:
         logger.error(f"[TestGen] LLM call failed: {e}. Falling back to minimal test set.")

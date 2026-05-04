@@ -251,8 +251,26 @@ def _generate_recommendations(
         raw = response.content if hasattr(response, "content") else str(response)
         parsed = json.loads(raw)
         if isinstance(parsed, list):
-            return [str(r) for r in parsed]
-        return parsed.get("recommendations", [str(parsed)])
+            # Flatten nested dicts (some models return [{"Description": ..., "Action": ...}])
+            result = []
+            for r in parsed:
+                if isinstance(r, dict):
+                    result.append(". ".join(str(v) for v in r.values() if v))
+                else:
+                    result.append(str(r))
+            return result
+        # Case-insensitive key lookup for "recommendations" / "Recommendations"
+        for key in parsed:
+            if key.lower() == "recommendations":
+                items = parsed[key]
+                result = []
+                for r in items:
+                    if isinstance(r, dict):
+                        result.append(". ".join(str(v) for v in r.values() if v))
+                    else:
+                        result.append(str(r))
+                return result
+        return [str(parsed)]
     except Exception as e:
         logger.warning(f"[Report] Recommendation generation failed: {e}")
         # Fallback: rule-based recommendations
