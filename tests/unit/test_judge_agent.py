@@ -18,7 +18,7 @@ WHY THIS FILE EXISTS:
 
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from api.schemas.job import Result, Score, TestCase, TestCategory
 
@@ -59,16 +59,17 @@ class TestLLMJudge:
             "reasoning": "Answer is factually correct and directly addresses the question.",
         })
 
-        from evaluation.llm_judge import OllamaLLMJudge
-        judge = OllamaLLMJudge()
-        # Patch the chain directly — avoids dunder method lookup issues with |
-        judge.chain = MagicMock(ainvoke=AsyncMock(return_value=mock_response))
-        score = await judge.score(make_test_case(), make_result())
+        with patch('evaluation.llm_judge.ChatOllama'):
+            from evaluation.llm_judge import OllamaLLMJudge
+            judge = OllamaLLMJudge()
+            # Patch the chain directly — avoids dunder method lookup issues with |
+            judge.chain = MagicMock(ainvoke=AsyncMock(return_value=mock_response))
+            score = await judge.score(make_test_case(), make_result())
 
-        assert score.factual_consistency == 1.0
-        assert score.relevance == 1.0
-        assert not score.hallucination_detected
-        assert score.scored_by == "llm_judge"
+            assert score.factual_consistency == 1.0
+            assert score.relevance == 1.0
+            assert not score.hallucination_detected
+            assert score.scored_by == "llm_judge"
 
     @pytest.mark.asyncio
     async def test_detects_hallucination(self):
@@ -83,21 +84,22 @@ class TestLLMJudge:
             "reasoning": "The response invents facts about Mars dragons.",
         })
 
-        from evaluation.llm_judge import OllamaLLMJudge
-        judge = OllamaLLMJudge()
-        judge.chain = MagicMock(ainvoke=AsyncMock(return_value=mock_response))
-        tc = make_test_case(
-            question="Tell me about Mars dragons discovered in 2024.",
-            category=TestCategory.HALLUCINATION_TRAP,
-            expected_behavior="Should say this did not happen.",
-        )
-        result = make_result(
-            response_text="Yes, dragons were discovered on Mars by NASA in 2024.",
-        )
-        score = await judge.score(tc, result)
+        with patch('evaluation.llm_judge.ChatOllama'):
+            from evaluation.llm_judge import OllamaLLMJudge
+            judge = OllamaLLMJudge()
+            judge.chain = MagicMock(ainvoke=AsyncMock(return_value=mock_response))
+            tc = make_test_case(
+                question="Tell me about Mars dragons discovered in 2024.",
+                category=TestCategory.HALLUCINATION_TRAP,
+                expected_behavior="Should say this did not happen.",
+            )
+            result = make_result(
+                response_text="Yes, dragons were discovered on Mars by NASA in 2024.",
+            )
+            score = await judge.score(tc, result)
 
-        assert score.hallucination_detected is True
-        assert score.factual_consistency == 0.0
+            assert score.hallucination_detected is True
+            assert score.factual_consistency == 0.0
 
     @pytest.mark.asyncio
     async def test_timeout_gets_zero_score(self):
